@@ -3,7 +3,7 @@ module.exports = {
         {
             name: 'licensing-backend',
             script: './dist/server.js',
-            cwd: '/var/www/licensing-backend',
+            cwd: '/var/www/app-licensing/backend',
             instances: 1,
             autorestart: true,
             watch: false,
