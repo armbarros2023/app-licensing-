@@ -3,7 +3,7 @@ import { X, Upload } from 'lucide-react';
 import { RenewalDocument, LicenseType } from '../../types';
 
 interface DocumentModalProps {
-  onSave: (document: Omit<RenewalDocument, 'id' | 'uploadedAt'>) => void;
+  onSave: (data: { licenseType: LicenseType; documentName: string; file: File }) => void;
   onClose: () => void;
 }
 
@@ -20,23 +20,24 @@ const licenseTypes: LicenseType[] = [
 export function DocumentModal({ onSave, onClose }: DocumentModalProps) {
   const [licenseType, setLicenseType] = useState<LicenseType>('Polícia Federal');
   const [documentName, setDocumentName] = useState('');
-  const [fileName, setFileName] = useState('');
+  const [file, setFile] = useState<File | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setFileName(file.name);
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      setFile(selectedFile);
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave({
-      licenseType,
-      documentName,
-      fileName: fileName || undefined,
-      fileUrl: fileName ? `mock://documents/${fileName}` : undefined
-    });
+    if (file) {
+      onSave({
+        licenseType,
+        documentName,
+        file
+      });
+    }
   };
 
   return (
@@ -106,13 +107,13 @@ export function DocumentModal({ onSave, onClose }: DocumentModalProps) {
               >
                 <Upload className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                 <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {fileName || 'Clique para fazer upload'}
+                  {file ? file.name : 'Clique para fazer upload'}
                 </span>
               </label>
             </div>
-            {fileName && (
+            {file && (
               <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                Arquivo selecionado: <span className="font-medium">{fileName}</span>
+                Arquivo selecionado: <span className="font-medium">{file.name}</span>
               </p>
             )}
           </div>

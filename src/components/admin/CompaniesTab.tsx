@@ -1,49 +1,51 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Building2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, Building2, Loader2 } from 'lucide-react';
 import { Company } from '../../types';
 import { CompanyModal } from './CompanyModal';
-import { initializeLocalStorage } from '../../utils/mockData';
+import api from '../../utils/api';
 
 export function CompaniesTab() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    initializeLocalStorage();
     loadCompanies();
   }, []);
 
-  const loadCompanies = () => {
-    const stored = localStorage.getItem('companies');
-    if (stored) {
-      setCompanies(JSON.parse(stored));
+  const loadCompanies = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get<Company[]>('/companies');
+      setCompanies(response.data);
+      setError('');
+    } catch (err) {
+      console.error('Failed to load companies:', err);
+      setError('Erro ao carregar empresas. Tente novamente.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleSaveCompany = (company: Omit<Company, 'id' | 'createdAt'>) => {
-    const stored = localStorage.getItem('companies');
-    const currentCompanies: Company[] = stored ? JSON.parse(stored) : [];
-
-    if (editingCompany) {
-      const updated = currentCompanies.map(c =>
-        c.id === editingCompany.id ? { ...editingCompany, ...company } : c
-      );
-      localStorage.setItem('companies', JSON.stringify(updated));
-      setCompanies(updated);
-    } else {
-      const newCompany: Company = {
-        ...company,
-        id: Date.now().toString(),
-        createdAt: new Date().toISOString().split('T')[0]
-      };
-      const updated = [...currentCompanies, newCompany];
-      localStorage.setItem('companies', JSON.stringify(updated));
-      setCompanies(updated);
+  const handleSaveCompany = async (companyData: Omit<Company, 'id' | 'createdAt'>) => {
+    try {
+      if (editingCompany) {
+        const response = await api.put<Company>(`/companies/${editingCompany.id}`, companyData);
+        setCompanies(companies.map(c =>
+          c.id === editingCompany.id ? response.data : c
+        ));
+      } else {
+        const response = await api.post<Company>('/companies', companyData);
+        setCompanies([response.data, ...companies]);
+      }
+      setIsModalOpen(false);
+      setEditingCompany(null);
+    } catch (err) {
+      console.error('Failed to save company:', err);
+      alert('Erro ao salvar empresa. Verifique os dados e tente novamente.');
     }
-
-    setIsModalOpen(false);
-    setEditingCompany(null);
   };
 
   const handleEdit = (company: Company) => {
@@ -51,20 +53,14 @@ export function CompaniesTab() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Tem certeza que deseja excluir esta empresa? Todas as licenças associadas também serão excluídas.')) {
-      const stored = localStorage.getItem('companies');
-      const currentCompanies: Company[] = stored ? JSON.parse(stored) : [];
-      const updated = currentCompanies.filter(c => c.id !== id);
-      localStorage.setItem('companies', JSON.stringify(updated));
-      setCompanies(updated);
-
-      // Remove associated licenses
-      const licensesStored = localStorage.getItem('licenses');
-      if (licensesStored) {
-        const licenses = JSON.parse(licensesStored);
-        const updatedLicenses = licenses.filter((l: any) => l.companyId !== id);
-        localStorage.setItem('licenses', JSON.stringify(updatedLicenses));
+      try {
+        await api.delete(`/companies/${id}`);
+        setCompanies(companies.filter(c => c.id !== id));
+      } catch (err) {
+        console.error('Failed to delete company:', err);
+        alert('Erro ao excluir empresa. Tente novamente.');
       }
     }
   };
@@ -73,6 +69,14 @@ export function CompaniesTab() {
     setIsModalOpen(false);
     setEditingCompany(null);
   };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -83,15 +87,21 @@ export function CompaniesTab() {
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 gradient-bg text-white rounded-lg hover:opacity-90 transition-opacity shadow-md"
         >
           <Plus className="w-5 h-5" />
           Nova Empresa
         </button>
       </div>
 
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg mb-6">
+          {error}
+        </div>
+      )}
+
       {companies.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-12 text-center">
+        <div className="glass rounded-xl p-12 text-center">
           <Building2 className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
             Nenhuma empresa cadastrada
@@ -101,7 +111,7 @@ export function CompaniesTab() {
           </p>
           <button
             onClick={() => setIsModalOpen(true)}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-3 gradient-bg text-white rounded-lg hover:opacity-90 transition-opacity shadow-md"
           >
             <Plus className="w-5 h-5" />
             Adicionar Primeira Empresa
@@ -112,35 +122,38 @@ export function CompaniesTab() {
           {companies.map((company) => (
             <div
               key={company.id}
-              className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md transition-shadow"
+              className="glass rounded-xl p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 group"
             >
               <div className="flex justify-between items-start mb-4">
-                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                  <Building2 className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                <div className="w-12 h-12 rounded-xl gradient-bg flex items-center justify-center shadow-md shadow-indigo-500/20 group-hover:scale-110 transition-transform duration-300">
+                  <Building2 className="w-6 h-6 text-white" />
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                   <button
                     onClick={() => handleEdit(company)}
                     className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                    title="Editar"
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => handleDelete(company.id)}
                     className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                    title="Excluir"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               </div>
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-2">{company.name}</h3>
-              <div className="space-y-1">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  <span className="font-medium">CNPJ:</span> {company.cnpj}
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-2 text-lg">{company.name}</h3>
+              <div className="space-y-2">
+                <p className="text-sm text-gray-600 dark:text-gray-400 flex justify-between">
+                  <span className="font-medium">CNPJ:</span>
+                  <span className="font-mono">{company.cnpj}</span>
                 </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  <span className="font-medium">Cadastro:</span>{' '}
-                  {new Date(company.createdAt).toLocaleDateString('pt-BR')}
+                <p className="text-sm text-gray-600 dark:text-gray-400 flex justify-between">
+                  <span className="font-medium">Cadastro:</span>
+                  <span>{new Date(company.createdAt).toLocaleDateString('pt-BR')}</span>
                 </p>
               </div>
             </div>

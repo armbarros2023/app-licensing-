@@ -4,6 +4,7 @@ import { Login } from "./components/Login";
 import { AdminDashboard } from "./components/AdminDashboard";
 import { UserDashboard } from "./components/UserDashboard";
 import { NotFound } from "./components/NotFound";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 
 export const router = createBrowserRouter([
   {
@@ -11,9 +12,21 @@ export const router = createBrowserRouter([
     Component: Root,
     children: [
       { index: true, Component: Login },
-      { path: "admin", Component: AdminDashboard },
-      { path: "user", Component: UserDashboard },
-      { path: "*", Component: NotFound },
+      {
+        path: "admin",
+        element: <ProtectedRoute allowedRoles={ ['admin']} />,
+      children: [
+        { index: true, Component: AdminDashboard },
+      ],
+      },
+  {
+    path: "user",
+    element: <ProtectedRoute allowedRoles={ ['user', 'admin']} />,
+  children: [
+    { index: true, Component: UserDashboard },
+  ],
+      },
+{ path: "*", Component: NotFound },
     ],
   },
 ]);

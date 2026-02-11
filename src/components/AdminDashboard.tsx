@@ -30,13 +30,8 @@ export function AdminDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (!user || user.role !== 'admin') {
-      navigate('/');
-      return;
-    }
-    initializeLocalStorage();
-  }, [user, navigate]);
+  // ProtectedRoute handles role check and auth redirection
+  // initializeLocalStorage is no longer needed as we use API
 
   const handleLogout = () => {
     logout();
@@ -100,8 +95,8 @@ export function AdminDashboard() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${isActive
-                      ? 'gradient-bg text-white shadow-md shadow-indigo-500/20'
-                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+                    ? 'gradient-bg text-white shadow-md shadow-indigo-500/20'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
                     }`}
                 >
                   <Icon className="w-4 h-4" />

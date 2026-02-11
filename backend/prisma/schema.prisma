@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("user")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Company {
+  id        String    @id @default(uuid())
+  cnpj      String    @unique
+  name      String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  licenses  License[]
+}
+
+model License {
+  id         String   @id @default(uuid())
+  companyId  String
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  type       String
+  issueDate  DateTime
+  expiryDate DateTime
+  fileUrl    String?
+  fileName   String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model RenewalDocument {
+  id           String   @id @default(uuid())
+  licenseType  String
+  documentName String
+  fileUrl      String?
+  fileName     String?
+  uploadedAt   DateTime @default(now())
+}
+
+model RenewalURL {
+  id          String @id @default(uuid())
+  licenseType String
+  url         String
+  description String
+}

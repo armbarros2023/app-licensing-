@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { ThemeToggle } from './ThemeToggle';
 import { UserLicenseCard } from './user/UserLicenseCard';
-import { initializeLocalStorage, getLicenseStatus } from '../utils/mockData';
 import {
   Shield,
   FileText,
@@ -15,8 +14,10 @@ import {
   Filter,
   Printer,
   LogOut,
+  Loader2,
 } from 'lucide-react';
 import { License, Company, RenewalURL } from '../types';
+import api from '../utils/api';
 
 export function UserDashboard() {
   const [licenses, setLicenses] = useState<License[]>([]);
@@ -25,32 +26,40 @@ export function UserDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCompany, setFilterCompany] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (!user || user.role !== 'user') {
-      navigate('/');
-      return;
+      // If not user (e.g. admin trying to access user view, or not logged in), 
+      // AuthContext/ProtectedRoute usually handles this, but keep safe.
+      // Actually ProtectedRoute allows 'user' and 'admin' for this route in routes.ts?
+      // "element: <ProtectedRoute allowedRoles={['user', 'admin']} />"
+      // So admins CAN see this.
     }
-    initializeLocalStorage();
     loadData();
-  }, [user, navigate]);
+  }, [user]);
 
-  const loadData = () => {
-    const storedLicenses = localStorage.getItem('licenses');
-    const storedCompanies = localStorage.getItem('companies');
-    const storedURLs = localStorage.getItem('renewalURLs');
-
-    if (storedLicenses) {
-      const parsedLicenses = JSON.parse(storedLicenses).map((l: License) => ({
-        ...l,
-        status: getLicenseStatus(l.expiryDate),
-      }));
-      setLicenses(parsedLicenses);
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [licensesRes, companiesRes, urlsRes] = await Promise.all([
+        api.get<License[]>('/licenses'),
+        api.get<Company[]>('/companies'),
+        api.get<RenewalURL[]>('/renewal-urls')
+      ]);
+      setLicenses(licensesRes.data);
+      setCompanies(companiesRes.data);
+      setRenewalURLs(urlsRes.data);
+      setError('');
+    } catch (err) {
+      console.error('Failed to load user data:', err);
+      setError('Erro ao carregar dados. Tente atualizar a página.');
+    } finally {
+      setLoading(false);
     }
-    if (storedCompanies) setCompanies(JSON.parse(storedCompanies));
-    if (storedURLs) setRenewalURLs(JSON.parse(storedURLs));
   };
 
   const handleLogout = () => {
@@ -63,6 +72,14 @@ export function UserDashboard() {
   };
 
   if (!user) return null;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center gradient-bg-light">
+        <Loader2 className="w-12 h-12 text-indigo-500 animate-spin" />
+      </div>
+    );
+  }
 
   const stats = {
     total: licenses.length,
@@ -132,6 +149,12 @@ export function UserDashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 animate-fade-in">
+        {error && (
+          <div className="mb-6 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg">
+            {error}
+          </div>
+        )}
+
         {/* Stat Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6 stagger-children">
           <div className="stat-card-total rounded-xl border p-4 card-premium">

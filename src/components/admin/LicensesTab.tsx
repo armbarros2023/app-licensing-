@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Plus, FileText, AlertCircle, CheckCircle, Clock } from 'lucide-react';
+import { Plus, FileText, AlertCircle, CheckCircle, Clock, Loader2 } from 'lucide-react';
 import { License, Company } from '../../types';
 import { LicenseModal } from './LicenseModal';
 import { LicenseCard } from './LicenseCard';
-import { getLicenseStatus } from '../../utils/mockData';
+import api from '../../utils/api';
 
 export function LicensesTab() {
   const [licenses, setLicenses] = useState<License[]>([]);
@@ -12,55 +12,48 @@ export function LicensesTab() {
   const [editingLicense, setEditingLicense] = useState<License | null>(null);
   const [selectedCompany, setSelectedCompany] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const loadData = () => {
-    const storedLicenses = localStorage.getItem('licenses');
-    const storedCompanies = localStorage.getItem('companies');
-
-    if (storedLicenses) {
-      const parsedLicenses = JSON.parse(storedLicenses);
-      // Update status based on expiry date
-      const updatedLicenses = parsedLicenses.map((license: License) => ({
-        ...license,
-        status: getLicenseStatus(license.expiryDate)
-      }));
-      setLicenses(updatedLicenses);
-      localStorage.setItem('licenses', JSON.stringify(updatedLicenses));
-    }
-
-    if (storedCompanies) {
-      setCompanies(JSON.parse(storedCompanies));
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [licensesRes, companiesRes] = await Promise.all([
+        api.get<License[]>('/licenses'),
+        api.get<Company[]>('/companies')
+      ]);
+      setLicenses(licensesRes.data);
+      setCompanies(companiesRes.data);
+      setError('');
+    } catch (err) {
+      console.error('Failed to load data:', err);
+      setError('Erro ao carregar dados. Tente novamente.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleSaveLicense = (license: Omit<License, 'id' | 'status'>) => {
-    const stored = localStorage.getItem('licenses');
-    const currentLicenses: License[] = stored ? JSON.parse(stored) : [];
-    const status = getLicenseStatus(license.expiryDate);
-
-    if (editingLicense) {
-      const updated = currentLicenses.map(l =>
-        l.id === editingLicense.id ? { ...license, id: editingLicense.id, status } : l
-      );
-      localStorage.setItem('licenses', JSON.stringify(updated));
-      setLicenses(updated);
-    } else {
-      const newLicense: License = {
-        ...license,
-        id: Date.now().toString(),
-        status
-      };
-      const updated = [...currentLicenses, newLicense];
-      localStorage.setItem('licenses', JSON.stringify(updated));
-      setLicenses(updated);
+  const handleSaveLicense = async (licenseData: Omit<License, 'id' | 'status'>) => {
+    try {
+      if (editingLicense) {
+        const response = await api.put<License>(`/licenses/${editingLicense.id}`, licenseData);
+        setLicenses(licenses.map(l =>
+          l.id === editingLicense.id ? response.data : l
+        ));
+      } else {
+        const response = await api.post<License>('/licenses', licenseData);
+        setLicenses([...licenses, response.data]);
+      }
+      setIsModalOpen(false);
+      setEditingLicense(null);
+    } catch (err) {
+      console.error('Failed to save license:', err);
+      alert('Erro ao salvar licença. Verifique os dados e tente novamente.');
     }
-
-    setIsModalOpen(false);
-    setEditingLicense(null);
   };
 
   const handleEdit = (license: License) => {
@@ -68,13 +61,15 @@ export function LicensesTab() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Tem certeza que deseja excluir esta licença?')) {
-      const stored = localStorage.getItem('licenses');
-      const currentLicenses: License[] = stored ? JSON.parse(stored) : [];
-      const updated = currentLicenses.filter(l => l.id !== id);
-      localStorage.setItem('licenses', JSON.stringify(updated));
-      setLicenses(updated);
+      try {
+        await api.delete(`/licenses/${id}`);
+        setLicenses(licenses.filter(l => l.id !== id));
+      } catch (err) {
+        console.error('Failed to delete license:', err);
+        alert('Erro ao excluir licença. Tente novamente.');
+      }
     }
   };
 
@@ -96,6 +91,14 @@ export function LicensesTab() {
     expired: licenses.filter(l => l.status === 'expired').length,
   };
 
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -105,12 +108,18 @@ export function LicensesTab() {
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 gradient-bg text-white rounded-lg hover:opacity-90 transition-opacity shadow-md"
         >
           <Plus className="w-5 h-5" />
           Nova Licença
         </button>
       </div>
+
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg mb-6">
+          {error}
+        </div>
+      )}
 
       {/* Statistics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 stagger-children">

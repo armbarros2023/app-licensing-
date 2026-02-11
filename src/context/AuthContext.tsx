@@ -1,58 +1,54 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
+import api from '../utils/api';
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => boolean;
+  login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
+  loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('currentUser');
-    if (savedUser) {
+    const savedUser = localStorage.getItem('user');
+    const token = localStorage.getItem('token');
+
+    if (savedUser && token) {
       setUser(JSON.parse(savedUser));
     }
+    setLoading(false);
   }, []);
 
-  const login = (email: string, password: string): boolean => {
-    // Mock authentication
-    if (email === 'admin@licencas.com' && password === 'admin123') {
-      const adminUser: User = {
-        id: '1',
-        email: 'admin@licencas.com',
-        name: 'Administrador',
-        role: 'admin'
-      };
-      setUser(adminUser);
-      localStorage.setItem('currentUser', JSON.stringify(adminUser));
+  const login = async (email: string, password: string): Promise<boolean> => {
+    try {
+      const response = await api.post('/auth/login', { email, password });
+      const { user, token } = response.data;
+
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      setUser(user);
       return true;
-    } else if (email === 'usuario@licencas.com' && password === 'user123') {
-      const normalUser: User = {
-        id: '2',
-        email: 'usuario@licencas.com',
-        name: 'Usuário Comum',
-        role: 'user'
-      };
-      setUser(normalUser);
-      localStorage.setItem('currentUser', JSON.stringify(normalUser));
-      return true;
+    } catch (error) {
+      console.error('Login error:', error);
+      return false;
     }
-    return false;
   };
 
   const logout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
     setUser(null);
-    localStorage.removeItem('currentUser');
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user, loading }}>
       {children}
     </AuthContext.Provider>
   );

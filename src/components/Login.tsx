@@ -22,10 +22,16 @@ export function Login() {
     await new Promise(resolve => setTimeout(resolve, 400));
 
     initializeLocalStorage();
-    const success = login(email, password);
+    const success = await login(email, password);
 
     if (success) {
-      const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+      // User is already set in context by login function
+      // We can get the role from the context, or just infer it?
+      // But we can't easily access the updated user state immediately here due to closure?
+      // Actually login returns success, so we can assume user is set.
+      // But we need to know the role to redirect.
+      // Let's decode the token or read from localStorage which we just set in login()
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
       navigate(user.role === 'admin' ? '/admin' : '/user');
     } else {
       setError('Credenciais inválidas. Verifique seu email e senha.');
