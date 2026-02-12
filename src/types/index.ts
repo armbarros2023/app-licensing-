@@ -5,6 +5,14 @@ export interface Company {
   createdAt: string;
 }
 
+export interface LicenseFile {
+  id: string;
+  licenseId: string;
+  fileName: string;
+  fileUrl: string;
+  createdAt: string;
+}
+
 export interface License {
   id: string;
   companyId: string;
@@ -13,10 +21,11 @@ export interface License {
   expiryDate: string;
   fileUrl?: string;
   fileName?: string;
+  files?: LicenseFile[];
   status: 'valid' | 'expiring' | 'expired';
 }
 
-export type LicenseType = 
+export type LicenseType =
   | 'Polícia Civil'
   | 'Polícia Federal'
   | 'IBAMA'

@@ -7,8 +7,10 @@ import {
   Download,
   Printer,
   ExternalLink,
+  Files,
 } from 'lucide-react';
 import { License, Company, RenewalURL } from '../../types';
+import api from '../../utils/api';
 
 interface UserLicenseCardProps {
   license: License;
@@ -55,12 +57,24 @@ export function UserLicenseCard({ license, companies, renewalURLs }: UserLicense
   };
 
   const daysUntilExpiry = getDaysUntilExpiry();
+  const filesCount = license.files?.length || 0;
 
-  const handleDownload = () => {
-    if (license.fileUrl) {
-      alert(`Download do arquivo: ${license.fileName}`);
-    } else {
-      alert('Nenhum arquivo disponível para download');
+  const handleDownloadFile = async (fileId: string, fileName: string) => {
+    try {
+      const response = await api.get(`/licenses/${license.id}/files/${fileId}/download`, {
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Download error:', err);
+      alert('Erro ao fazer download do arquivo.');
     }
   };
 
@@ -89,13 +103,6 @@ export function UserLicenseCard({ license, companies, renewalURLs }: UserLicense
           {config.label}
         </div>
         <div className="flex gap-2">
-          <button
-            onClick={handleDownload}
-            className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-            title="Download"
-          >
-            <Download className="w-4 h-4" />
-          </button>
           <button
             onClick={handlePrint}
             className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
@@ -153,7 +160,7 @@ export function UserLicenseCard({ license, companies, renewalURLs }: UserLicense
             <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
               <div
                 className={`h-2 rounded-full transition-all duration-500 ${license.status === 'valid' ? 'bg-green-500' :
-                    license.status === 'expiring' ? 'bg-yellow-500' : 'bg-red-500'
+                  license.status === 'expiring' ? 'bg-yellow-500' : 'bg-red-500'
                   }`}
                 style={{ width: `${progressPercentage}%` }}
               />
@@ -176,6 +183,34 @@ export function UserLicenseCard({ license, companies, renewalURLs }: UserLicense
             <p className="text-xs text-red-800 dark:text-red-400 font-medium text-center">
               Vencida há {Math.abs(daysUntilExpiry)} dia{Math.abs(daysUntilExpiry) !== 1 ? 's' : ''}
             </p>
+          </div>
+        )}
+
+        {/* Files section - download only, no delete for users */}
+        {filesCount > 0 && (
+          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Files className="w-4 h-4 text-indigo-500" />
+              <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                Arquivos ({filesCount})
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              {license.files!.map((file) => (
+                <div key={file.id} className="flex items-center justify-between p-1.5 bg-gray-50 dark:bg-gray-700/50 rounded group">
+                  <span className="text-xs text-gray-700 dark:text-gray-300 truncate max-w-[70%]">
+                    {file.fileName}
+                  </span>
+                  <button
+                    onClick={() => handleDownloadFile(file.id, file.fileName)}
+                    className="p-1 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                    title="Download"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

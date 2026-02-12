@@ -6,14 +6,18 @@ import {
   CheckCircle,
   Clock,
   Calendar,
+  Download,
+  Files,
 } from "lucide-react";
 import { License, Company } from "../../types";
+import api from "../../utils/api";
 
 interface LicenseCardProps {
   license: License;
   companies: Company[];
   onEdit: (license: License) => void;
   onDelete: (id: string) => void;
+  onRefresh?: () => void;
 }
 
 export function LicenseCard({
@@ -21,6 +25,7 @@ export function LicenseCard({
   companies,
   onEdit,
   onDelete,
+  onRefresh,
 }: LicenseCardProps) {
   const company = companies.find(
     (c) => c.id === license.companyId,
@@ -58,12 +63,43 @@ export function LicenseCard({
     const today = new Date();
     const days = Math.floor(
       (expiry.getTime() - today.getTime()) /
-        (1000 * 60 * 60 * 24),
+      (1000 * 60 * 60 * 24),
     );
     return days;
   };
 
   const daysUntilExpiry = getDaysUntilExpiry();
+  const filesCount = license.files?.length || 0;
+
+  const handleDownloadFile = async (fileId: string, fileName: string) => {
+    try {
+      const response = await api.get(`/licenses/${license.id}/files/${fileId}/download`, {
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Download error:', err);
+      alert('Erro ao fazer download do arquivo.');
+    }
+  };
+
+  const handleDeleteFile = async (fileId: string) => {
+    if (!confirm('Tem certeza que deseja excluir este arquivo?')) return;
+    try {
+      await api.delete(`/licenses/${license.id}/files/${fileId}`);
+      onRefresh?.();
+    } catch (err) {
+      console.error('Delete file error:', err);
+      alert('Erro ao excluir arquivo.');
+    }
+  };
 
   return (
     <div
@@ -166,16 +202,48 @@ export function LicenseCard({
           </div>
         )}
 
-        {license.fileName && (
-          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-              Arquivo
-            </p>
-            <p className="text-sm text-gray-700 dark:text-gray-300 truncate">
-              {license.fileName}
-            </p>
+        {/* Files section */}
+        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-1.5">
+              <Files className="w-4 h-4 text-indigo-500" />
+              <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                Arquivos ({filesCount}/5)
+              </p>
+            </div>
           </div>
-        )}
+          {filesCount > 0 ? (
+            <div className="space-y-1.5">
+              {license.files!.map((file) => (
+                <div key={file.id} className="flex items-center justify-between p-1.5 bg-gray-50 dark:bg-gray-700/50 rounded group">
+                  <span className="text-xs text-gray-700 dark:text-gray-300 truncate max-w-[60%]">
+                    {file.fileName}
+                  </span>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => handleDownloadFile(file.id, file.fileName)}
+                      className="p-1 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                      title="Download"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteFile(file.id)}
+                      className="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                      title="Excluir"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400 dark:text-gray-500 italic">
+              Nenhum arquivo anexado
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

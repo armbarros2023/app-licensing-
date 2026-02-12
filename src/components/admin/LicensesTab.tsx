@@ -222,6 +222,7 @@ export function LicensesTab() {
               companies={companies}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              onRefresh={loadData}
             />
           ))}
         </div>
@@ -233,6 +234,7 @@ export function LicensesTab() {
           companies={companies}
           onSave={handleSaveLicense}
           onClose={handleCloseModal}
+          onRefresh={loadData}
         />
       )}
     </div>

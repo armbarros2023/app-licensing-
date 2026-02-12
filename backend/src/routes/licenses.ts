@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import multer from 'multer';
 import path from 'path';
+import fs from 'fs';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import { adminMiddleware } from '../middleware/admin';
 import { getLicenseStatus } from '../utils/licenseStatus';
@@ -10,14 +11,21 @@ const prisma = new PrismaClient();
 const router = Router();
 
 // Multer config for license file uploads
+const uploadsDir = path.join(__dirname, '..', '..', 'uploads', 'licenses');
+
+// Ensure uploads directory exists
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
 const storage = multer.diskStorage({
-    destination: path.join(__dirname, '..', '..', 'uploads', 'licenses'),
+    destination: uploadsDir,
     filename: (_req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
         cb(null, uniqueSuffix + path.extname(file.originalname));
     },
 });
-const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB
+const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB per file
 
 router.use(authMiddleware);
 
@@ -32,7 +40,7 @@ router.get('/', async (req: AuthRequest, res: Response): Promise<void> => {
 
         const licenses = await prisma.license.findMany({
             where,
-            include: { company: true },
+            include: { company: true, files: true },
             orderBy: { expiryDate: 'asc' },
         });
 
@@ -93,7 +101,7 @@ router.post('/', adminMiddleware, async (req: AuthRequest, res: Response): Promi
                 expiryDate: new Date(expiryDate),
                 fileName,
             },
-            include: { company: true },
+            include: { company: true, files: true },
         });
 
         res.status(201).json({
@@ -121,7 +129,7 @@ router.put('/:id', adminMiddleware, async (req: AuthRequest, res: Response): Pro
                 expiryDate: expiryDate ? new Date(expiryDate) : undefined,
                 fileName,
             },
-            include: { company: true },
+            include: { company: true, files: true },
         });
 
         res.json({
@@ -138,6 +146,16 @@ router.put('/:id', adminMiddleware, async (req: AuthRequest, res: Response): Pro
 router.delete('/:id', adminMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
     try {
         const id = req.params.id as string;
+
+        // Delete associated files from disk
+        const files = await prisma.licenseFile.findMany({ where: { licenseId: id } });
+        for (const file of files) {
+            const filePath = path.join(uploadsDir, path.basename(file.fileUrl));
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+            }
+        }
+
         await prisma.license.delete({ where: { id } });
         res.json({ message: 'Licença excluída com sucesso' });
     } catch (error) {
@@ -146,28 +164,114 @@ router.delete('/:id', adminMiddleware, async (req: AuthRequest, res: Response): 
     }
 });
 
-// POST /api/licenses/:id/upload (admin only)
-router.post('/:id/upload', adminMiddleware, upload.single('file'), async (req: AuthRequest, res: Response): Promise<void> => {
+// POST /api/licenses/:id/upload (admin only) - Upload up to 5 files
+router.post('/:id/upload', adminMiddleware, upload.array('files', 5), async (req: AuthRequest, res: Response): Promise<void> => {
     try {
         const id = req.params.id as string;
+        const files = req.files as Express.Multer.File[];
 
-        if (!req.file) {
+        if (!files || files.length === 0) {
             res.status(400).json({ error: 'Nenhum arquivo enviado' });
             return;
         }
 
-        const license = await prisma.license.update({
-            where: { id },
-            data: {
-                fileName: req.file.originalname,
-                fileUrl: `/uploads/licenses/${req.file.filename}`,
-            },
-        });
+        // Check current file count for this license
+        const existingCount = await prisma.licenseFile.count({ where: { licenseId: id } });
 
-        res.json(license);
+        if (existingCount + files.length > 5) {
+            // Remove uploaded files from disk since we're rejecting
+            for (const file of files) {
+                if (fs.existsSync(file.path)) {
+                    fs.unlinkSync(file.path);
+                }
+            }
+            res.status(400).json({
+                error: `Limite de 5 arquivos por licença. Atualmente: ${existingCount}. Tentando adicionar: ${files.length}.`
+            });
+            return;
+        }
+
+        // Create LicenseFile records
+        const createdFiles = await Promise.all(
+            files.map((file) =>
+                prisma.licenseFile.create({
+                    data: {
+                        licenseId: id,
+                        fileName: file.originalname,
+                        fileUrl: `/uploads/licenses/${file.filename}`,
+                    },
+                })
+            )
+        );
+
+        // Also update the legacy fileName on the license (use first file)
+        if (createdFiles.length > 0) {
+            await prisma.license.update({
+                where: { id },
+                data: {
+                    fileName: createdFiles[0].fileName,
+                    fileUrl: createdFiles[0].fileUrl,
+                },
+            });
+        }
+
+        res.json(createdFiles);
     } catch (error) {
         console.error('Upload error:', error);
         res.status(500).json({ error: 'Erro ao fazer upload' });
+    }
+});
+
+// DELETE /api/licenses/:licenseId/files/:fileId (admin only) - Delete a single file
+router.delete('/:licenseId/files/:fileId', adminMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const fileId = req.params.fileId as string;
+
+        const file = await prisma.licenseFile.findUnique({ where: { id: fileId } });
+
+        if (!file) {
+            res.status(404).json({ error: 'Arquivo não encontrado' });
+            return;
+        }
+
+        // Delete file from disk
+        const filePath = path.join(uploadsDir, path.basename(file.fileUrl));
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+        }
+
+        await prisma.licenseFile.delete({ where: { id: fileId as string } });
+
+        res.json({ message: 'Arquivo excluído com sucesso' });
+    } catch (error) {
+        console.error('Delete file error:', error);
+        res.status(500).json({ error: 'Erro ao excluir arquivo' });
+    }
+});
+
+// GET /api/licenses/:id/files/:fileId/download - Download a file (any authenticated user)
+router.get('/:id/files/:fileId/download', async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const fileId = req.params.fileId as string;
+
+        const file = await prisma.licenseFile.findUnique({ where: { id: fileId } });
+
+        if (!file) {
+            res.status(404).json({ error: 'Arquivo não encontrado' });
+            return;
+        }
+
+        const filePath = path.join(uploadsDir, path.basename(file.fileUrl));
+
+        if (!fs.existsSync(filePath)) {
+            res.status(404).json({ error: 'Arquivo não encontrado no servidor' });
+            return;
+        }
+
+        res.download(filePath, file.fileName);
+    } catch (error) {
+        console.error('Download error:', error);
+        res.status(500).json({ error: 'Erro ao fazer download' });
     }
 });
 

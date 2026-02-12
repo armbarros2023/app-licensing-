@@ -27,16 +27,26 @@ model Company {
 }
 
 model License {
-  id         String   @id @default(uuid())
+  id         String        @id @default(uuid())
   companyId  String
-  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company    Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
   type       String
   issueDate  DateTime
   expiryDate DateTime
   fileUrl    String?
   fileName   String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  files      LicenseFile[]
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+}
+
+model LicenseFile {
+  id        String   @id @default(uuid())
+  licenseId String
+  license   License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  fileName  String
+  fileUrl   String
+  createdAt DateTime @default(now())
 }
 
 model RenewalDocument {
