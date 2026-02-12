@@ -33,7 +33,7 @@ export function LicenseModal({ license, companies, onSave, onClose, onRefresh }:
   const [uploadError, setUploadError] = useState('');
 
   const existingFilesCount = license?.files?.length || 0;
-  const maxNewFiles = 5 - existingFilesCount;
+  const maxNewFiles = 20 - existingFilesCount;
 
   useEffect(() => {
     if (license) {
@@ -226,7 +226,7 @@ export function LicenseModal({ license, companies, onSave, onClose, onRefresh }:
           {license && license.files && license.files.length > 0 && (
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Arquivos Existentes ({license.files.length}/5)
+                Arquivos Existentes ({license.files.length})
               </label>
               <div className="space-y-2">
                 {license.files.map((file) => (
@@ -252,7 +252,7 @@ export function LicenseModal({ license, companies, onSave, onClose, onRefresh }:
           {/* Upload new files */}
           <div>
             <label htmlFor="files" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              {license ? `Adicionar Arquivos (máx: ${maxNewFiles})` : 'Arquivos da Licença (máx: 5)'}
+              {license ? `Adicionar Arquivos (máx: ${maxNewFiles})` : 'Arquivos da Licença'}
             </label>
             <div className="relative">
               <input

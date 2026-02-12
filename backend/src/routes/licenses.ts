@@ -166,8 +166,8 @@ router.delete('/:id', adminMiddleware, async (req: AuthRequest, res: Response): 
     }
 });
 
-// POST /api/licenses/:id/upload (admin only) - Upload up to 5 files
-router.post('/:id/upload', adminMiddleware, upload.array('files', 5), async (req: AuthRequest, res: Response): Promise<void> => {
+// POST /api/licenses/:id/upload (admin only) - Upload files
+router.post('/:id/upload', adminMiddleware, upload.array('files', 20), async (req: AuthRequest, res: Response): Promise<void> => {
     try {
         const id = req.params.id as string;
         const files = req.files as Express.Multer.File[];
@@ -180,7 +180,7 @@ router.post('/:id/upload', adminMiddleware, upload.array('files', 5), async (req
         // Check current file count for this license
         const existingCount = await prisma.licenseFile.count({ where: { licenseId: id } });
 
-        if (existingCount + files.length > 5) {
+        if (existingCount + files.length > 20) {
             // Remove uploaded files from disk since we're rejecting
             for (const file of files) {
                 if (fs.existsSync(file.path)) {
@@ -188,7 +188,7 @@ router.post('/:id/upload', adminMiddleware, upload.array('files', 5), async (req
                 }
             }
             res.status(400).json({
-                error: `Limite de 5 arquivos por licença. Atualmente: ${existingCount}. Tentando adicionar: ${files.length}.`
+                error: `Limite de 20 arquivos por licença. Atualmente: ${existingCount}. Tentando adicionar: ${files.length}.`
             });
             return;
         }

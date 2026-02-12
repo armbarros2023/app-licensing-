@@ -211,18 +211,18 @@ export function LicenseCard({
             <div className="flex items-center gap-1.5">
               <Files className="w-4 h-4 text-indigo-500" />
               <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                Arquivos ({filesCount}/5)
+                Arquivos ({filesCount})
               </p>
             </div>
           </div>
           {filesCount > 0 ? (
             <div className="space-y-1.5">
               {license.files!.map((file) => (
-                <div key={file.id} className="flex items-center justify-between p-1.5 bg-gray-50 dark:bg-gray-700/50 rounded group">
+                <div key={file.id} className="flex items-center justify-between p-1.5 bg-gray-50 dark:bg-gray-700/50 rounded">
                   <span className="text-xs text-gray-700 dark:text-gray-300 truncate max-w-[60%]">
                     {file.fileName}
                   </span>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex gap-1">
                     <button
                       onClick={() => handleDownloadFile(file.id, file.fileName)}
                       className="p-1 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
