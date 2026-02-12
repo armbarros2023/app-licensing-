@@ -129,7 +129,12 @@ export function UserLicenseCard({ license, companies, renewalURLs }: UserLicense
         <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-2 mb-2">
             <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            <p className="font-semibold text-gray-900 dark:text-white">{license.type}</p>
+            <p className="font-semibold text-gray-900 dark:text-white">
+              {license.type}
+              {license.subType && (
+                <span className="text-sm font-normal text-gray-500 dark:text-gray-400"> — {license.subType}</span>
+              )}
+            </p>
           </div>
         </div>
 

@@ -86,7 +86,7 @@ router.get('/stats', async (_req: AuthRequest, res: Response): Promise<void> => 
 // POST /api/licenses (admin only)
 router.post('/', adminMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const { companyId, type, issueDate, expiryDate, fileName } = req.body;
+        const { companyId, type, subType, issueDate, expiryDate, fileName } = req.body;
 
         if (!companyId || !type || !issueDate || !expiryDate) {
             res.status(400).json({ error: 'Campos obrigatórios não preenchidos' });
@@ -97,6 +97,7 @@ router.post('/', adminMiddleware, async (req: AuthRequest, res: Response): Promi
             data: {
                 companyId,
                 type,
+                subType,
                 issueDate: new Date(issueDate),
                 expiryDate: new Date(expiryDate),
                 fileName,
@@ -118,13 +119,14 @@ router.post('/', adminMiddleware, async (req: AuthRequest, res: Response): Promi
 router.put('/:id', adminMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
     try {
         const id = req.params.id as string;
-        const { companyId, type, issueDate, expiryDate, fileName } = req.body;
+        const { companyId, type, subType, issueDate, expiryDate, fileName } = req.body;
 
         const license = await prisma.license.update({
             where: { id },
             data: {
                 companyId,
                 type,
+                subType,
                 issueDate: issueDate ? new Date(issueDate) : undefined,
                 expiryDate: expiryDate ? new Date(expiryDate) : undefined,
                 fileName,

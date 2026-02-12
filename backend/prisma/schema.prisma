@@ -31,6 +31,7 @@ model License {
   companyId  String
   company    Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
   type       String
+  subType    String?
   issueDate  DateTime
   expiryDate DateTime
   fileUrl    String?

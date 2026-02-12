@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Upload, FileText, Trash2 } from 'lucide-react';
-import { License, Company, LicenseType } from '../../types';
+import { License, Company, LicenseType, LicenseSubTypes } from '../../types';
 import api from '../../utils/api';
 
 interface LicenseModalProps {
@@ -24,6 +24,7 @@ const licenseTypes: LicenseType[] = [
 export function LicenseModal({ license, companies, onSave, onClose, onRefresh }: LicenseModalProps) {
   const [companyId, setCompanyId] = useState('');
   const [type, setType] = useState<LicenseType>('Polícia Federal');
+  const [subType, setSubType] = useState('');
   const [issueDate, setIssueDate] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
   const [fileName, setFileName] = useState('');
@@ -38,6 +39,7 @@ export function LicenseModal({ license, companies, onSave, onClose, onRefresh }:
     if (license) {
       setCompanyId(license.companyId);
       setType(license.type);
+      setSubType(license.subType || '');
       setIssueDate(license.issueDate.split('T')[0]);
       setExpiryDate(license.expiryDate.split('T')[0]);
       setFileName(license.fileName || '');
@@ -81,6 +83,7 @@ export function LicenseModal({ license, companies, onSave, onClose, onRefresh }:
     onSave({
       companyId,
       type,
+      subType: subType || undefined,
       issueDate,
       expiryDate,
       fileName: fileName || undefined,
@@ -157,7 +160,7 @@ export function LicenseModal({ license, companies, onSave, onClose, onRefresh }:
             <select
               id="type"
               value={type}
-              onChange={(e) => setType(e.target.value as LicenseType)}
+              onChange={(e) => { setType(e.target.value as LicenseType); setSubType(''); }}
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
               required
             >
@@ -168,6 +171,27 @@ export function LicenseModal({ license, companies, onSave, onClose, onRefresh }:
               ))}
             </select>
           </div>
+
+          {/* Sub-Type Selector */}
+          {LicenseSubTypes[type] && LicenseSubTypes[type].length > 0 && (
+            <div>
+              <label htmlFor="subType" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Categoria *
+              </label>
+              <select
+                id="subType"
+                value={subType}
+                onChange={(e) => setSubType(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                required
+              >
+                <option value="">Selecione a categoria</option>
+                {LicenseSubTypes[type].map(st => (
+                  <option key={st} value={st}>{st}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div>

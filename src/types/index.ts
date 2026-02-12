@@ -17,6 +17,7 @@ export interface License {
   id: string;
   companyId: string;
   type: LicenseType;
+  subType?: string;
   issueDate: string;
   expiryDate: string;
   fileUrl?: string;
@@ -33,6 +34,16 @@ export type LicenseType =
   | 'Vigilância Sanitária'
   | 'Exército'
   | 'Municipal';
+
+export const LicenseSubTypes: Record<LicenseType, string[]> = {
+  'Polícia Civil': ['Fabricação', 'Comércio', 'Transporte', 'Vistoria'],
+  'Polícia Federal': ['Fabricação', 'Comércio', 'Transporte', 'Vistoria'],
+  'IBAMA': ['Fabricação', 'Comércio', 'Transporte'],
+  'CETESB': ['Operação', 'Instalação', 'Prévia'],
+  'Vigilância Sanitária': ['Funcionamento', 'Sanitária'],
+  'Exército': ['Fabricação', 'Comércio', 'Transporte', 'Vistoria'],
+  'Municipal': ['Funcionamento', 'Alvará'],
+};
 
 export interface RenewalDocument {
   id: string;

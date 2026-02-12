@@ -146,6 +146,9 @@ export function LicenseCard({
             <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             <p className="font-semibold text-gray-900 dark:text-white">
               {license.type}
+              {license.subType && (
+                <span className="text-sm font-normal text-gray-500 dark:text-gray-400"> — {license.subType}</span>
+              )}
             </p>
           </div>
         </div>
